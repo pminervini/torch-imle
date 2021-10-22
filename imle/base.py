@@ -55,4 +55,3 @@ def wrapped(function: Callable[[Tensor], Tensor] = None,
 
                 res = perturbed_output.mean(0) - target_output.mean(0)
                 return res
-

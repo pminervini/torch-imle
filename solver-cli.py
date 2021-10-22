@@ -4,7 +4,7 @@
 import sys
 import numpy as np
 
-from imle.dijkstra import get_solver
+from solvers.dijkstra import get_solver
 
 
 def main(argv):
@@ -23,8 +23,6 @@ def main(argv):
     path = solver(matrix)
 
     print(path)
-
-
 
 if __name__ == '__main__':
     main(sys.argv[1:])

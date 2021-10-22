@@ -1,8 +1,12 @@
+# -*- coding: utf-8 -*-
+
 import numpy as np
 import heapq
 import torch
+
 from functools import partial
-from imle.utils import get_neighbourhood_func, maybe_parallelize
+
+from solvers.utils import get_neighbourhood_func, maybe_parallelize
 from collections import namedtuple
 
 DijkstraOutput = namedtuple("DijkstraOutput",
