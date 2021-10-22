@@ -11,18 +11,6 @@ def main(argv):
     neighbourhood_fn = "8-grid"
     solver = get_solver(neighbourhood_fn)
 
-    matrix = np.ones(shape=[8, 8], dtype=np.float)
-    matrix[1, 0] = 0
-    matrix[2, 0] = 0
-    matrix[3, 0] = 0
-    matrix[3, 1] = 0
-    matrix[3, 2] = 0
-
-    print(matrix)
-
-    path = solver(matrix)
-
-    print(path)
 
 
 if __name__ == '__main__':

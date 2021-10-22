@@ -14,16 +14,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def wrapped(function: Callable[[Tensor], Tensor] = None,
-            noise_distribution: BaseNoiseDistribution = None,
-            nb_samples: int = 1,
-            lambda_: float = 1.0):
+def imle(function: Callable[[Tensor], Tensor] = None,
+         noise_distribution: BaseNoiseDistribution = None,
+         nb_samples: int = 1,
+         lambda_: float = 1.0):
 
     if noise_distribution is None:
         noise_distribution = SumOfGammaNoiseDistribution(k=20.0, nb_iterations=100)
 
     if function is None:
-        return functools.partial(wrapped, nb_samples=nb_samples, noise_distribution=noise_distribution)
+        return functools.partial(imle,
+                                 noise_distribution=noise_distribution,
+                                 nb_samples=nb_samples,
+                                 lambda_=lambda_)
 
     @functools.wraps(function)
     def wrapper(input: Tensor, *args):
@@ -55,3 +58,6 @@ def wrapped(function: Callable[[Tensor], Tensor] = None,
 
                 res = perturbed_output.mean(0) - target_output.mean(0)
                 return res
+
+        return WrappedFunc.apply(input, *args)
+    return wrapper
