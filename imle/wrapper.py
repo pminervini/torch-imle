@@ -5,9 +5,10 @@ import functools
 import torch
 from torch import Tensor, Size
 
-from imle.distributions import BaseNoiseDistribution, SumOfGammaNoiseDistribution
+from imle.noise import BaseNoiseDistribution
+from imle.target import BaseTargetDistribution, TargetDistribution
 
-from typing import Callable
+from typing import Callable, Optional
 
 import logging
 
@@ -15,18 +16,18 @@ logger = logging.getLogger(__name__)
 
 
 def imle(function: Callable[[Tensor], Tensor] = None,
-         noise_distribution: BaseNoiseDistribution = None,
-         nb_samples: int = 1,
-         lambda_: float = 1.0):
+         target_distribution: Optional[BaseTargetDistribution] = None,
+         noise_distribution: Optional[BaseNoiseDistribution] = None,
+         nb_samples: int = 1):
 
-    if noise_distribution is None:
-        noise_distribution = SumOfGammaNoiseDistribution(k=20.0, nb_iterations=100)
+    if target_distribution is None:
+        target_distribution = TargetDistribution(alpha=1.0, beta=1.0)
 
     if function is None:
         return functools.partial(imle,
+                                 target_distribution=target_distribution,
                                  noise_distribution=noise_distribution,
-                                 nb_samples=nb_samples,
-                                 lambda_=lambda_)
+                                 nb_samples=nb_samples)
 
     @functools.wraps(function)
     def wrapper(input: Tensor, *args):
@@ -34,30 +35,60 @@ def imle(function: Callable[[Tensor], Tensor] = None,
 
             @staticmethod
             def forward(ctx, input: Tensor, *args):
+                # [BATCH_SIZE, ..]
                 input_shape = input.shape
-                perturbed_input_shape = Size([nb_samples] + list(input_shape))
 
-                noise = noise_distribution.sample(shape=perturbed_input_shape)
-                perturbed_input = input.unsqueeze(0) + noise
+                # [N_SAMPLES, BATCH_SIZE, ..]
+                perturbed_input_shape = [nb_samples] + list(input_shape)
 
-                perturbed_output = function(perturbed_input)
+                if noise_distribution is None:
+                    noise = torch.zeros(size=perturbed_input_shape)
+                else:
+                    noise = noise_distribution.sample(shape=torch.Size(perturbed_input_shape))
+
+                # [N_SAMPLES, BATCH_SIZE, ..]
+                perturbed_input_3d = input.unsqueeze(0) + noise
+
+                # [N_SAMPLES * BATCH_SIZE, ..]
+                perturbed_input_2d = perturbed_input_3d.view([-1] + perturbed_input_shape[2:])
+
+                # [N_SAMPLES * BATCH_SIZE, ..]
+                perturbed_output = function(perturbed_input_2d)
+                # [N_SAMPLES, BATCH_SIZE, ..]
+                perturbed_output = perturbed_output.view(perturbed_input_shape)
 
                 ctx.save_for_backward(input, noise, perturbed_output)
 
+                # [BATCH_SIZE, ..]
                 res = perturbed_output.mean(0)
                 return res
 
             @staticmethod
             def backward(ctx, dy):
+                # input: [BATCH_SIZE, ..]
+                # noise: [N_SAMPLES, BATCH_SIZE, ..]
+                # perturbed_output: # [N_SAMPLES, BATCH_SIZE, ..]
                 input, noise, perturbed_output = ctx.saved_variables
 
-                target_input = input + lambda_ * dy
-                target_perturbed_input = target_input.unsqueeze(0) + noise
+                # [BATCH_SIZE, ..]
+                target_input = target_distribution.params(input, dy)
 
-                target_output = function(target_perturbed_input)
+                # [N_SAMPLES, BATCH_SIZE, ..]
+                perturbed_target_input_3d = target_input.unsqueeze(0) + noise
 
-                res = perturbed_output.mean(0) - target_output.mean(0)
-                return res
+                # [N_SAMPLES, BATCH_SIZE, ..]
+                perturbed_target_input_shape = list(perturbed_target_input_3d.shape)
+
+                # [N_SAMPLES * BATCH_SIZE, ..]
+                perturbed_target_input_2d = perturbed_target_input_3d.view([-1] + perturbed_target_input_shape[2:])
+
+                # [N_SAMPLES * BATCH_SIZE, ..]
+                target_output = function(perturbed_target_input_2d)
+                # [N_SAMPLES, BATCH_SIZE, ..]
+                target_output.view(perturbed_target_input_shape)
+
+                gradient = perturbed_output.mean(0) - target_output.mean(0)
+                return gradient
 
         return WrappedFunc.apply(input, *args)
     return wrapper

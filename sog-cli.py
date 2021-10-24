@@ -46,7 +46,7 @@ def main(argv):
     # with torch.inference_mode():
     #     samples = sample_sum_of_gammas_torch(1024, k=torch.ones(20) * 20, nb_iterations=100).cpu().numpy()
 
-    from imle.distributions import SumOfGammaNoiseDistribution
+    from imle.noise import SumOfGammaNoiseDistribution
     distribution = SumOfGammaNoiseDistribution(k=20.0, nb_iterations=1000)
     with torch.inference_mode():
         samples = distribution.sample(shape=torch.Size([8192, 20])).cpu().numpy()

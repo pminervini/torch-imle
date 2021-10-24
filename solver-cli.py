@@ -12,11 +12,8 @@ def main(argv):
     solver = get_solver(neighbourhood_fn)
 
     matrix = np.ones(shape=[8, 8], dtype=np.float)
-    matrix[1, 0] = 0
-    matrix[2, 0] = 0
-    matrix[3, 0] = 0
-    matrix[3, 1] = 0
-    matrix[3, 2] = 0
+    matrix[1:4, 0] = 0
+    matrix[3, 0:3] = 0
 
     print(matrix)
 
